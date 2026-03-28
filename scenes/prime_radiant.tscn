@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://cgreb1ydfpfhi"]
+
+[ext_resource type="Script" uid="uid://dl285le4cr78b" path="res://scripts/prime_radiant.gd" id="1_r5jxb"]
+
+[node name="PrimeRadiant" type="Node3D" unique_id=1645828370]
+script = ExtResource("1_r5jxb")

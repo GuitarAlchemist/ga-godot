@@ -1,0 +1,41 @@
+; Engine configuration file.
+; It's best edited using the editor UI and not directly,
+; since the parameters that go here are not all obvious.
+;
+; Format:
+;   [section] ; section goes between []
+;   param=value ; assign values to parameters
+
+config_version=5
+
+[application]
+
+config/name="Guitar Alchemist"
+config/description="Guitar Alchemist - 3D Music Theory Exploration"
+run/main_scene="res://scenes/prime_radiant.tscn"
+config/features=PackedStringArray("4.6")
+config/icon="res://icon.svg"
+
+[display]
+
+window/size/viewport_width=1280
+window/size/viewport_height=720
+
+[dotnet]
+
+project/assembly_name="Guitar Alchemist"
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/godot_mcp/plugin.cfg")
+
+[rendering]
+
+lights_and_shadows/directional_shadow/soft_shadow_filter_quality=0
+lights_and_shadows/positional_shadow/soft_shadow_filter_quality=0
+global_illumination/gi/use_half_resolution=true
+textures/default_filters/anisotropic_filtering_level=1
+anti_aliasing/quality/msaa_3d=1
+environment/glow/upscale_mode=0
+environment/subsurface_scattering/subsurface_scattering_quality=0
+environment/defaults/default_clear_color=Color(0.01, 0.01, 0.03, 1)
