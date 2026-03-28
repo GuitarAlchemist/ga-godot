@@ -188,6 +188,7 @@ func _create_governance_node(def: Dictionary, parent: GovernanceNode) -> Governa
 	node.algedonic_pain.connect(_on_algedonic_pain)
 	node.algedonic_pleasure.connect(_on_algedonic_pleasure)
 	node.belief_changed.connect(_on_belief_changed)
+	node.node_clicked.connect(_on_node_clicked)
 
 	# Build children recursively — fractal structure (children = moons)
 	if def.has("children"):
@@ -332,6 +333,16 @@ func _on_algedonic_pleasure(source: GovernanceNode, magnitude: float, descriptio
 func _on_belief_changed(node: GovernanceNode, old_state: GovernanceNode.BeliefState, new_state: GovernanceNode.BeliefState) -> void:
 	var state_names = ["TRUE", "PROBABLE", "UNKNOWN", "DOUBTFUL", "FALSE", "CONTRADICTORY"]
 	print("[BELIEF] %s: %s → %s" % [node.node_name, state_names[old_state], state_names[new_state]])
+
+
+func _on_node_clicked(node: GovernanceNode) -> void:
+	print("[CLICK] Node clicked: %s" % node.node_name)
+	_post_to_react({
+		"type": "godot:node-clicked",
+		"nodeId": node.node_name,
+		"nodeType": node.node_type,
+		"repo": node.repo,
+	})
 
 
 func _create_ripple(pos: Vector3, color: Color, intensity: float) -> void:

@@ -199,6 +199,18 @@ func _setup_visual() -> void:
 	label_3d.visible = false  # shown on proximity
 	add_child(label_3d)
 
+	# Clickable area — Area3D with CollisionShape3D matching the mesh radius
+	var area = Area3D.new()
+	area.name = "click_area"
+	area.input_ray_pickable = true
+	var col_shape = CollisionShape3D.new()
+	var sphere_shape = SphereShape3D.new()
+	sphere_shape.radius = sphere.radius
+	col_shape.shape = sphere_shape
+	area.add_child(col_shape)
+	add_child(area)
+	area.input_event.connect(_on_input_event)
+
 	# 3D Pin marker — small cone pointing down at the node
 	_setup_pin()
 
@@ -307,4 +319,13 @@ func hide_pin() -> void:
 	pin_visible = false
 	pin_marker.visible = false
 	popup_label.visible = false
-	popup_label.modulat
+	popup_label.modulate.a = 1.0
+	pin_marker.scale = Vector3.ONE
+
+
+## Handle click input on the Area3D — emit node_clicked signal
+func _on_input_event(_camera: Node, event: InputEvent, _position: Vector3, _normal: Vector3, _shape_idx: int) -> void:
+	if event is InputEventMouseButton:
+		var mb = event as InputEventMouseButton
+		if mb.button_index == MOUSE_BUTTON_LEFT and mb.pressed:
+			node_clicked.emit(self)
