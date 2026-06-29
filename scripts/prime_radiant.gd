@@ -54,12 +54,16 @@ var all_nodes: Array[GovernanceNode] = []
 var time: float = 0.0
 var cloud_layers: Array[MeshInstance3D] = []
 var cloud_time: float = 0.0
+var demerzel_face: Node3D = null
+
+const DemerzelFaceScene = preload("res://scenes/demerzel_face.tscn")
 
 
 func _ready() -> void:
 	_setup_environment()
 	_setup_camera()
 	_setup_sun()
+	_setup_demerzel_face()
 	_build_governance_graph()
 	_add_cloud_layers()
 	_start_demo_signals()
@@ -151,6 +155,36 @@ func _setup_sun() -> void:
 	sun_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	sun_mesh.material_override = sun_mat
 	add_child(sun_mesh)
+
+
+func _setup_demerzel_face() -> void:
+	# Demerzel's face — positioned near the Demerzel planet (innermost orbit)
+	# Floats above and to the side, always subtly facing the camera
+	demerzel_face = DemerzelFaceScene.instantiate()
+	demerzel_face.position = Vector3(-3.0, 6.0, -2.0)  # near Demerzel planet, elevated
+	demerzel_face.scale = Vector3(1.5, 1.5, 1.5)
+	add_child(demerzel_face)
+
+	# Connect emotion changes to React bridge
+	if demerzel_face.has_signal("emotion_changed"):
+		demerzel_face.emotion_changed.connect(_on_demerzel_emotion_changed)
+
+	# Add subtle rim light for the face
+	var face_light := OmniLight3D.new()
+	face_light.light_color = Color(1.0, 0.84, 0.0)
+	face_light.light_energy = 2.0
+	face_light.omni_range = 8.0
+	face_light.shadow_enabled = false
+	face_light.position = Vector3(0, 2, 3)
+	demerzel_face.add_child(face_light)
+
+	print("[PrimeRadiant] Demerzel face spawned (model: %s)" % [
+		"blend shapes" if demerzel_face.has_face_model() else "placeholder"
+	])
+
+
+func _on_demerzel_emotion_changed(emotion_name: String) -> void:
+	_post_to_react({ "type": "demerzel:emotion-changed", "emotion": emotion_name })
 
 
 func _build_governance_graph() -> void:
@@ -445,7 +479,7 @@ func _setup_web_bridge() -> void:
 	JavaScriptBridge.eval("""
 		window.parent.postMessage({ type: 'godot:ready' }, '*');
 		window.addEventListener('message', function(ev) {
-			if (ev.data && ev.data.type && ev.data.type.startsWith('governance:')) {
+			if (ev.data && ev.data.type && (ev.data.type.startsWith('governance:') || ev.data.type.startsWith('demerzel:'))) {
 				// Store inbound messages for Godot to poll
 				window.__godotInbound = window.__godotInbound || [];
 				window.__godotInbound.push(ev.data);
@@ -514,6 +548,15 @@ func _handle_web_message(msg: Dictionary) -> void:
 						target.emit_pain(signal_data.get("severity", 0.7), signal_data.get("description", ""))
 					else:
 						target.emit_pleasure(signal_data.get("magnitude", 0.5), signal_data.get("description", ""))
+		"demerzel:emotion":
+			if demerzel_face:
+				demerzel_face.set_emotion_by_name(msg.get("emotion", "calm"))
+		"demerzel:speaking":
+			if demerzel_face:
+				demerzel_face.set_speaking(msg.get("speaking", false))
+		"demerzel:auto-cycle":
+			if demerzel_face:
+				demerzel_face.set_auto_cycle(msg.get("enabled", true))
 
 
 func _post_to_react(msg: Dictionary) -> void:
