@@ -3,6 +3,8 @@
 ## Planets = repos, moons = services, rings = coordination layers.
 extends Node3D
 
+const GrommetMesh = preload("res://scripts/grommet_mesh.gd")
+
 ## Repo definitions — each becomes a planet
 const REPOS = [
 	{ "name": "demerzel", "color": Color(1.0, 0.84, 0.0), "radius": 3.0, "distance": 5.0,
@@ -54,6 +56,10 @@ var all_nodes: Array[GovernanceNode] = []
 var time: float = 0.0
 var cloud_layers: Array[MeshInstance3D] = []
 var cloud_time: float = 0.0
+## "ring" (thin torus, the default) or "grommet" (laid rope); IXQL `RENDER GROMMET ON|OFF|TOGGLE`.
+var moon_ring_style: String = "ring"
+var moon_rings: Array[MeshInstance3D] = []
+var _grommet_meshes: Dictionary = {}  # core radius -> ArrayMesh, shared by every ring of that size
 
 
 func _ready() -> void:
@@ -244,21 +250,49 @@ func _add_moon_ring(parent: GovernanceNode, child_count: int) -> void:
 		return
 	# Faint ring around planets that have moons (children)
 	var ring = MeshInstance3D.new()
-	var torus = TorusMesh.new()
-	torus.inner_radius = parent.orbit_radius * 0.08 if parent.orbit_radius > 0 else 1.5
-	torus.outer_radius = torus.inner_radius + 0.03
-	torus.rings = 12
-	torus.ring_segments = 32
-	ring.mesh = torus
 	ring.rotation.x = PI * 0.5  # flat horizontal ring
-
-	var mat = StandardMaterial3D.new()
-	mat.albedo_color = Color(parent.base_color, 0.2)
-	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	mat.no_depth_test = true
-	ring.material_override = mat
+	ring.set_meta("inner_radius", parent.orbit_radius * 0.08 if parent.orbit_radius > 0 else 1.5)
+	ring.set_meta("color", parent.base_color)
+	_style_moon_ring(ring)
 	parent.add_child(ring)
+	moon_rings.append(ring)
+
+
+## Switch every moon ring between "ring" and "grommet". Returns how many rings changed.
+func set_moon_ring_style(style: String) -> int:
+	if style != "ring" and style != "grommet":
+		push_warning("Unknown moon ring style: %s" % style)
+		return 0
+	moon_ring_style = style
+	for ring in moon_rings:
+		_style_moon_ring(ring)
+	return moon_rings.size()
+
+
+func _style_moon_ring(ring: MeshInstance3D) -> void:
+	var inner: float = ring.get_meta("inner_radius")
+	var color: Color = ring.get_meta("color")
+	var mat = StandardMaterial3D.new()
+	if moon_ring_style == "grommet":
+		# Same core circle as the thin ring; a three-strand rope laid around it, lit and opaque.
+		var core := inner + 0.015
+		if not _grommet_meshes.has(core):
+			_grommet_meshes[core] = GrommetMesh.build(core, 0.05, 0.038)
+		ring.mesh = _grommet_meshes[core]
+		mat.albedo_color = color
+		mat.roughness = 0.85
+	else:
+		var torus = TorusMesh.new()
+		torus.inner_radius = inner
+		torus.outer_radius = inner + 0.03
+		torus.rings = 12
+		torus.ring_segments = 32
+		ring.mesh = torus
+		mat.albedo_color = Color(color, 0.2)
+		mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		mat.no_depth_test = true
+	ring.material_override = mat
 
 
 # ---------------------------------------------------------------------------
@@ -514,6 +548,23 @@ func _handle_web_message(msg: Dictionary) -> void:
 						target.emit_pain(signal_data.get("severity", 0.7), signal_data.get("description", ""))
 					else:
 						target.emit_pleasure(signal_data.get("magnitude", 0.5), signal_data.get("description", ""))
+		"governance:render":
+			# IXQL RENDER <target> ON|OFF|TOGGLE, forwarded by ForceRadiant; acknowledged either way.
+			var render_target = msg.get("target", "")
+			var action = msg.get("action", "toggle")
+			var applied = false
+			if render_target == "grommet":
+				var on = moon_ring_style != "grommet" if action == "toggle" else action == "on"
+				set_moon_ring_style("grommet" if on else "ring")
+				applied = true
+			_post_to_react({
+				"type": "godot:render-applied",
+				"target": render_target,
+				"action": action,
+				"applied": applied,
+				"style": moon_ring_style,
+				"rings": moon_rings.size(),
+			})
 
 
 func _post_to_react(msg: Dictionary) -> void:
