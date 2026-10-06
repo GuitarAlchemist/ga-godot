@@ -30,6 +30,7 @@ func _check_rules() -> void:
 	_expect(GrommetMesh.check(1.515, 0.05, 0.038, 3, 42).begins_with("grommet: gcd(3, 42) = 3"), "(3, 42) closes as 3 loops and is refused")
 	_expect(GrommetMesh.check(1.515, 0.05, 0.045, 3, 41).begins_with("grommet: strands overlap"), "a strand too thick for its lay is refused")
 	_expect(not GrommetMesh.check(1.515, 0.05, 0.038, 1, 41).is_empty(), "p = 1 is refused")
+	_expect(GrommetMesh.build(1.515, 0.05, 0.045) == null, "build refuses what check refuses")
 
 
 func _check_mesh() -> void:
@@ -78,6 +79,8 @@ func _check_scene() -> void:
 	_expect(scene.get("moon_ring_style") == "ring", "another target leaves the rings alone")
 	scene.call("_handle_web_message", {"type": "governance:render", "target": "grommet", "action": "toggle"})
 	_expect(scene.get("moon_ring_style") == "grommet", "TOGGLE from the ring gives the grommet")
+	scene.call("_handle_web_message", {"type": "governance:render", "target": "grommet", "action": "bogus"})
+	_expect(scene.get("moon_ring_style") == "grommet", "an unknown action leaves the grommet alone")
 	scene.call("_handle_web_message", {"type": "governance:render", "target": "grommet", "action": "off"})
 	_expect(rings.all(func(r): return r.mesh is TorusMesh), "OFF restores the TorusMesh")
 	scene.queue_free()

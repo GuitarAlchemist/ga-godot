@@ -273,15 +273,15 @@ func _style_moon_ring(ring: MeshInstance3D) -> void:
 	var inner: float = ring.get_meta("inner_radius")
 	var color: Color = ring.get_meta("color")
 	var mat = StandardMaterial3D.new()
-	if moon_ring_style == "grommet":
-		# Same core circle as the thin ring; a three-strand rope laid around it, lit and opaque.
-		var core := inner + 0.015
-		if not _grommet_meshes.has(core):
-			_grommet_meshes[core] = GrommetMesh.build(core, 0.05, 0.038)
+	# Same core circle as the thin ring; a three-strand rope laid around it, lit and opaque.
+	var core := inner + 0.015
+	if moon_ring_style == "grommet" and not _grommet_meshes.has(core):
+		_grommet_meshes[core] = GrommetMesh.build(core, 0.05, 0.038)
+	if moon_ring_style == "grommet" and _grommet_meshes.get(core) != null:
 		ring.mesh = _grommet_meshes[core]
 		mat.albedo_color = color
 		mat.roughness = 0.85
-	else:
+	else:  # also when the grommet cannot be laid: build() has pushed the reason
 		var torus = TorusMesh.new()
 		torus.inner_radius = inner
 		torus.outer_radius = inner + 0.03
@@ -553,7 +553,7 @@ func _handle_web_message(msg: Dictionary) -> void:
 			var render_target = msg.get("target", "")
 			var action = msg.get("action", "toggle")
 			var applied = false
-			if render_target == "grommet":
+			if render_target == "grommet" and action in ["on", "off", "toggle"]:
 				var on = moon_ring_style != "grommet" if action == "toggle" else action == "on"
 				set_moon_ring_style("grommet" if on else "ring")
 				applied = true

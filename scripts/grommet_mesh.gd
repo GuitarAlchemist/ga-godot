@@ -8,8 +8,8 @@ extends RefCounted
 ## Empty when the grommet can be laid, otherwise why not. Two craft rules:
 ## - gcd(p, q) == 1, or the curve closes as several separate strands (a link), not one strand;
 ## - neighbouring passes must not cut through each other. They sit 2a·sin(π/p) apart around
-##   the core, tilted by the lay angle, so the gap between centrelines is about
-##   2a·sin(π/p)·cos(lay) and must exceed the strand diameter 2s.
+##   the core, tilted by the lay angle; 2a·sin(π/p)·cos(lay) slightly underestimates the gap
+##   between centrelines, so the rule is conservative. It must exceed the strand diameter 2s.
 static func check(core_radius: float, lay_radius: float, strand_radius: float, p: int, q: int) -> String:
 	if p < 2 or q < 2:
 		return "grommet: p and q must be at least 2 (got %d, %d)" % [p, q]
