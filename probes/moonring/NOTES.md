@@ -17,8 +17,8 @@
 
 `moonring_probe.gd` seeds the scene (7), pauses the tree before the first frame, and places every orbit from its seeded start angle, so all captures share one frozen layout. For each view and anti-aliasing setting it renders three styles: rings hidden, ring, grommet. `analyze.py` then computes two numbers:
 
-- **footprint**: pixels that differ from the rings-hidden capture by more than 16 (0-255, max of RGB);
-- **error**: the mean difference from the reference over the reference's footprint. The reference is `ssaa2x_ref` (scale 2.0 bilinear + MSAA 4x), from the stock run.
+- **footprint**: pixels that differ from the rings-hidden capture by more than 16 (0-255, max of RGB). It is visible coverage, not geometric coverage: the thin ring is drawn at alpha 0.2, so its faint anti-aliased edges fall under the threshold, while the opaque grommet counts in full;
+- **error**: the mean difference from the reference over the reference's footprint. The reference is `ssaa2x_ref` (scale 2.0 bilinear + MSAA 4x), from the stock run. Each style has its own mask and contrast, so compare errors across settings within one style, never ring against grommet.
 
 Views:
 
@@ -51,14 +51,16 @@ Glow is off in the tables below. Glow's blur is counted in internal pixels, so i
 | DLSS Quality 0.667 (fork) | 26,169 | 126,976 | 3.29 | 3.78 | 0.637 / 0.637 / 0.646 | 7,081 |
 | DLSS Performance 0.5 (fork) | 25,790 | 125,020 | 3.03 | 4.40 | 0.634 / 0.635 / 0.640 | 7,033 |
 
+`images/ring-vs-grommet-close.png` shows the close view, ring then grommet (stock, glow on, MSAA 2x, half size). `images/dlss-crops-close.png` shows the same arc of the grommet in every setting of the fork's glow-off run, in this order: DLAA, DLSS Performance, DLSS Quality, MSAA 2x, no AA, reference.
+
 **Overview (orbit camera), MSAA 2x:**
 
-- The ring covers 963 px, the grommet 2,146 px: 2.2 times more.
+- The ring covers 963 px, the grommet 2,146 px: 2.2 times more visible coverage.
 - Under DLAA they cover 904 and 2,263 px.
 
 **Findings:**
 
-- **The grommet costs little.** It adds 0.006-0.026 ms of GPU time over the rings-hidden frame in every row, except the 2x supersampled reference (+0.089 ms). With three grommets in the close view, the frame draws 31,488 more primitives, against 2,304 more for three rings.
+- **The grommet costs little.** With glow off, it adds 0.006-0.023 ms of GPU time over the rings-hidden frame in every row, except the 2x supersampled reference (+0.089 ms). With glow on, it adds up to 0.026 ms. With three grommets in the close view, the frame draws 31,488 more primitives, against 2,304 more for three rings.
 - **The fork measures the same layout.** Its MSAA 2x, no-AA and reference rows reproduce stock's footprints exactly (Godot 4.6.1 and fork 4.6.3, e1157bf), so the comparison is like-for-like.
 - **DLSS ran.** Evaluations rose by 7,000 to 8,000 per row.
 - **DLSS has a fixed cost here.** It adds about 0.5 ms (0.13 → 0.64-0.67 ms).
