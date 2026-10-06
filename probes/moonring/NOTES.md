@@ -79,7 +79,7 @@ Glow is off in the tables below. Glow's blur is counted in internal pixels, so i
 - `RENDER GROMMET OFF` logged `style=ring`.
 - `RENDER KNOT TOGGLE` is a parse error: nothing reaches Godot.
 - In the docked panel (360x151 CSS px) no ring is readable.
-- In fullscreen the grommets read as coloured circles, but at the orbit distance of 40 a strand is 1-2 px, so the lay does not show.
+- In fullscreen the grommets read as coloured circles, but at the orbit distance of 40 a strand is 1-2 px, so the lay does not show (`images/web-fullscreen-grommet.png`, 1536x886, after `RENDER GROMMET ON`).
 
 ## To verify
 
