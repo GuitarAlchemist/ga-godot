@@ -124,19 +124,37 @@ python probes/moonring/analyze_motion.py <dir>
   - At 0.25° per frame the match is still one frame back, so the lag is a whole frame, not a smear.
   - Two runs at 0.5° gave the same numbers.
 - **Godot's motion vectors are not the cause.** FSR2, fed the same velocity buffer, and TAA both match the current pose. Stock 4.6.1 reproduces every non-DLSS row exactly.
-- **A probable cause, not yet tested.**
+- **The cause is in the fork, and a patch removes it.**
   - The fork runs DLSS as a render-graph callback and declares all its textures as sampled, including the output that DLSS writes (`servers/rendering/renderer_rd/effects/dlss.cpp:292-295`, e1157bf).
-  - So the graph does not order the tonemap's read of that output after DLSS.
+  - So the graph did not order the tonemap's read of that output after DLSS.
   - Upstream's MetalFX callbacks declare their destination `CALLBACK_RESOURCE_USAGE_STORAGE_IMAGE_READ_WRITE` (`metal_fx.mm:93`, `:185`).
-- **Held, the static finding stands.** MSAA 2x beats every DLSS setting on the grommet (2.31 against 2.93-4.46). In flight, DLSS cannot be judged until the one-frame lag is fixed.
-- **Among the settings that track the camera,** FSR2 holds best (3.16 → 3.60). TAA is the sharpest held but loses most in flight (1.92 → 4.50). MSAA does not change.
+  - `C:/tmp/godot-nvidia-dlss/fix_dlss_output_usage.py` (2026-10-07) declares the output read-write and tags it to Streamline in `VK_IMAGE_LAYOUT_GENERAL`, the layout the graph then gives it. The fork lives outside this repository; the Observatory's `artpass/dlss/NOTES.md` records the patch and its check on that scene.
+
+**After the patch (0.5° per frame):**
+
+| setting | held | in flight | trail (frames) | full-frame error, current pose | GPU ms |
+|---|---:|---:|---:|---:|---:|
+| DLAA | 2.91 | 4.30 | 0 | 0.495 | 0.692 |
+| DLSS Quality | 3.83 | 5.36 | 0 | 0.792 | 0.655 |
+| DLSS Performance | 4.48 | 4.78 | 0 | 0.717 | 0.658 |
+
+- **At 0.25° per frame** the trail is 0 as well, with an in-flight grommet error of 4.47-5.61.
+- **Nothing else moved.** The non-DLSS rows are identical to the unpatched run. DLSS still ran 416 evaluations per setting.
+- `images/motion-overlay-patched.png` shows the same overlay after the patch. The DLSS panels line up; only the transparent labels, which write no motion vectors, still fringe, as they do under TAA.
+
+**What the comparison says now:**
+
+- **On the grommet, MSAA 2x stays the best setting, held and in flight** (2.31). DLSS in flight (4.30-5.36) is close to TAA (4.50) and behind FSR2 (3.60).
+- **Over the whole frame in flight, DLSS beats TAA and FSR2.** DLAA's error is 0.495, against TAA 1.004 and FSR2 1.443. MSAA 2x still leads with 0.255.
+- **Held, the static finding stands.** MSAA 2x beats every DLSS setting on the grommet (2.31 against 2.91-4.48).
+- **TAA is the sharpest held but loses most in flight** (1.92 → 4.50). FSR2 holds best among the temporal settings (3.16 → 3.60).
 
 ## To verify
 
-- **The DLSS one-frame lag, after a fork patch.**
-  - Declare the DLSS output as written, rebuild, and rerun `motion_probe.gd --dlss`. The trail should drop to 0.
-  - The same callback carries Ray Reconstruction, so the Observatory's DLSS demo is likely affected too.
-  - On screen it would be one extra frame of latency, and 3D one frame behind anything drawn after it.
+- **The patched fork in the author's own use.**
+  - Walk the Observatory with `dlss_play.gd`.
+  - Try frame generation.
+  - Measure latency in PresentMon.
 - **A way to see the rope.** The scene has no close-up camera: `governance:select` only turns the camera. The three strands read only from about 4 units away.
 - **Meaning.** The faint ring said "this planet has moons". An opaque, lit rope is louder. Whether it should stay a toggle or become the default is a design decision, not a measurement.
 - **Phones and the published web build.** Nothing was published.
