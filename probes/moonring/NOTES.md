@@ -81,9 +81,62 @@ Glow is off in the tables below. Glow's blur is counted in internal pixels, so i
 - In the docked panel (360x151 CSS px) no ring is readable.
 - In fullscreen the grommets read as coloured circles, but at the orbit distance of 40 a strand is 1-2 px, so the lay does not show (`images/web-fullscreen-grommet.png`, 1536x886, after `RENDER GROMMET ON`).
 
+## Motion
+
+**Date:** 2026-10-06. **Request:** "continue a travailler", after the static comparison above left DLSS untested in motion. DLSS, TAA and FSR2 are temporal, so a static frame cannot judge them.
+
+**Method.** `motion_probe.gd` keeps the static probe's frozen layout and moves the camera itself, 0.5° per frame along an arc around demerzel, starting at the close view.
+
+- **Same poses for every setting.** Each setting sees the same pose at the same frame.
+- **Captures.** For each setting and style, the probe holds the first pose for 30 frames, then flies, capturing poses 60, 75 and 90 in flight. It then holds each of those poses for 30 frames and captures it again.
+- **Trail poses.** The reference also holds the 10 poses before pose 60.
+
+`analyze_motion.py` scores the in-flight and held images against the held 2x reference with the static error, and reports two more numbers:
+
+- **same px**, for determinism: MSAA 2x, no AA and the reference give identical images in flight and held (same px 1.0), so every pose is reproduced exactly;
+- **trail**: which earlier reference pose the in-flight image matches best.
+
+FSR2 at native scale is the control: a temporal upscaler fed the same motion vectors as DLSS. Each run uses glow off, an RTX 5080 at 1920x1080 and the fork on a copy of the project.
+
+```powershell
+godot --path . --rendering-method forward_plus --rendering-driver vulkan --resolution 1920x1080 `
+  --script res://probes/moonring/motion_probe.gd -- --out=<dir> --no-glow [--dlss] [--step=0.5]
+python probes/moonring/analyze_motion.py <dir>
+```
+
+**Grommet error against the reference (0.5° per frame, fork):**
+
+| setting | held | in flight | trail (frames) | full-frame error, current pose / trail pose | GPU ms |
+|---|---:|---:|---:|---|---:|
+| MSAA 2x | 2.31 | 2.31 | 0 | 0.255 | 0.167 |
+| no AA | 3.20 | 3.20 | 0 | 0.310 | 0.121 |
+| TAA | 1.92 | 4.50 | 0 | 1.004 | 0.250 |
+| FSR2, native | 3.16 | 3.60 | 0 | 1.443 | 0.499 |
+| DLAA | 2.93 | 14.53 | 1 | 2.473 / 0.582 | 0.743 |
+| DLSS Quality | 3.84 | 14.90 | 1 | 2.531 / 0.793 | 0.668 |
+| DLSS Performance | 4.46 | 14.66 | 1 | 2.581 / 0.735 | 0.651 |
+
+`images/motion-overlay.png`: around demerzel at pose 60, the reference in red and each setting's in-flight image in cyan, so a trail shows as colour fringes. The panels are, in order, DLAA, DLSS Performance, DLSS Quality, FSR2, MSAA 2x, no AA, reference, TAA.
+
+**Findings:**
+
+- **The fork's DLSS shows the previous frame.** Its in-flight image matches the reference one frame back (full-frame error 0.58-0.79), not the current pose (2.47-2.58). The fringes cover the grommets, the labels and the moons alike.
+  - At 0.25° per frame the match is still one frame back, so the lag is a whole frame, not a smear.
+  - Two runs at 0.5° gave the same numbers.
+- **Godot's motion vectors are not the cause.** FSR2, fed the same velocity buffer, and TAA both match the current pose. Stock 4.6.1 reproduces every non-DLSS row exactly.
+- **A probable cause, not yet tested.**
+  - The fork runs DLSS as a render-graph callback and declares all its textures as sampled, including the output that DLSS writes (`servers/rendering/renderer_rd/effects/dlss.cpp:292-295`, e1157bf).
+  - So the graph does not order the tonemap's read of that output after DLSS.
+  - Upstream's MetalFX callbacks declare their destination `CALLBACK_RESOURCE_USAGE_STORAGE_IMAGE_READ_WRITE` (`metal_fx.mm:93`, `:185`).
+- **Held, the static finding stands.** MSAA 2x beats every DLSS setting on the grommet (2.31 against 2.93-4.46). In flight, DLSS cannot be judged until the one-frame lag is fixed.
+- **Among the settings that track the camera,** FSR2 holds best (3.16 → 3.60). TAA is the sharpest held but loses most in flight (1.92 → 4.50). MSAA does not change.
+
 ## To verify
 
-- **Motion.** DLSS is temporal, and every frame here is static. Rerun with the orbit running and a fixed camera path before drawing a conclusion about DLSS.
+- **The DLSS one-frame lag, after a fork patch.**
+  - Declare the DLSS output as written, rebuild, and rerun `motion_probe.gd --dlss`. The trail should drop to 0.
+  - The same callback carries Ray Reconstruction, so the Observatory's DLSS demo is likely affected too.
+  - On screen it would be one extra frame of latency, and 3D one frame behind anything drawn after it.
 - **A way to see the rope.** The scene has no close-up camera: `governance:select` only turns the camera. The three strands read only from about 4 units away.
 - **Meaning.** The faint ring said "this planet has moons". An opaque, lit rope is louder. Whether it should stay a toggle or become the default is a design decision, not a measurement.
 - **Phones and the published web build.** Nothing was published.
